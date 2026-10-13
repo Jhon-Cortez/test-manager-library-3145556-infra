@@ -59,6 +59,21 @@ services:
     networks:
       - library
 
+  app:
+    build:
+      context: .
+      dockerfile: docker/app.Dockerfile
+      additional_contexts:
+        app: ../app
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000/api/v1}
+    ports:
+      - "5173:80"
+    depends_on:
+      - api
+    networks:
+      - library
+
 volumes:
   pgdata:
   covers:
