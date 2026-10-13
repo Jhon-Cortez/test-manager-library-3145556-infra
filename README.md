@@ -3,48 +3,65 @@
 > **Prueba técnica · Ficha ADSO 3145556**
 > Entrega: **martes 13 de octubre de 2026, a las 5:00 p. m.** (17:00, hora Colombia).
 
-Este repositorio es la **infraestructura** de *Manager Library*: contenedores, red, volúmenes y el motor de base de datos vacío. **Empieza vacío a propósito**: se construye en el fork de cada aprendiz.
+Infraestructura de *Manager Library*: contenedores, red, volúmenes y el motor de base de datos
+**vacío**. `docker compose up` levanta el sistema completo con un solo comando (RNF-5, T-20).
 
-## Instrucciones
+## Arranque con un solo comando
 
-Cada aprendiz debe **crear el fork** de los seis repositorios del proyecto y **resolver el proyecto
-con el spec planteado**.
+```bash
+cp .env.example .env   # complete los secretos (Art. IX: nunca se commitea .env)
+docker compose up
+```
 
-1. Hacer fork, a su cuenta de GitHub, de cada repositorio de la tabla del final.
-2. Leer el spec en [`test-manager-library-3145556-docs`](https://github.com/code-sena/test-manager-library-3145556-docs).
-   Se entrega en dos versiones: `spec-python/` y `spec-.net/`.
-3. Desarrollar en los forks.
+| Servicio | Tecnología | Puerto | Notas |
+|---|---|---|---|
+| `db` | PostgreSQL 16, servidor en UTC | 5432 | Arranca **sin tablas** |
+| `api` | PHP 8.3 / Laravel (repo `api`) | 8000 | `GET /api/v1/health` → `{"status":"ok"}` |
+| `app` | React (repo `app`) | 5173 | Build estático servido por nginx |
 
-## El reto se desarrolla con React y PHP (Laravel)
+## La base arranca vacía
 
-El spec está escrito para Python y para .NET, pero el reto **no** se hace en esos lenguajes:
+Artículo V de la constitución: el motor se levanta vacío y todo el DDL vive en las migraciones de
+`api`. Este repositorio **no contiene `CREATE TABLE`**. El esquema `library` aparece al correr las
+migraciones:
 
-| Capa | Tecnología del reto |
-|---|---|
-| Frontend | React |
-| Backend | PHP con Laravel |
+```bash
+docker compose exec api php artisan migrate
+```
 
-Lo que el spec define sobre el negocio —historias, criterios de aceptación, reglas, contrato de la
-API, modelo de datos— se respeta. Lo que define sobre la tecnología se traduce a React y Laravel.
+Verificación: 0 tablas antes, 6 después.
 
-## La prueba no consiste en escribir el código
+```bash
+docker compose exec db psql -U library -d library \
+  -c "select count(*) from information_schema.tables where table_schema in ('public','library');"
+```
 
-El propósito principal es ver la **capacidad de desempeño con SDD** (*Spec-Driven Development*,
-desarrollo guiado por especificación): cómo se lee, se interpreta y se aplica una especificación
-para llevarla a un stack distinto. El código es el medio, no el fin.
+## Variables de entorno
 
-## Entrega
+Las credenciales del motor y de la red interna están fijas en `docker-compose.yml`. En `.env` van
+solo los secretos y los orígenes (artículo IX):
 
-Cuenta lo que quede **subido a los forks antes de las 5:00 p. m.** (17:00). Lo que llegue después no se revisa.
-No hay prórroga: suban avances parciales con commits pequeños durante la prueba.
+| Variable | Obligatoria | Ejemplo | Generación |
+|---|---|---|---|
+| `APP_KEY` | sí | `base64:…` | `docker compose run --rm api php artisan key:generate --show` |
+| `JWT_SECRET` | sí | cadena larga aleatoria | `openssl rand -hex 32` |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | sí | `admin` / — | solo en `.env`, nunca en el repo |
+| `CORS_ORIGIN` | no | `http://localhost:5173` | — |
+| `VITE_API_URL` | no | `http://localhost:8000/api/v1` | — |
 
-## Los seis repositorios
+El resto de la configuración que exige `spec-laravel/plan.md` §2 (en [`test-manager-library-3145556-docs`](https://github.com/code-sena/test-manager-library-3145556-docs))
+§2 se resuelve dentro del stack: `DATABASE_URL=postgresql://library:library@db:5432/library`,
+`COVERS_DIR=/app/var/covers` (volúmenes `pgdata` y `covers`).
 
-| Repositorio | Qué va ahí |
-|---|---|
-| [`test-manager-library-3145556-docs`](https://github.com/code-sena/test-manager-library-3145556-docs) | El spec: `spec-python/` y `spec-.net/` |
-| [`test-manager-library-3145556-api`](https://github.com/code-sena/test-manager-library-3145556-api) | Backend en PHP (Laravel) |
-| [`test-manager-library-3145556-app`](https://github.com/code-sena/test-manager-library-3145556-app) | Frontend en React |
-| [`test-manager-library-3145556-page`](https://github.com/code-sena/test-manager-library-3145556-page) | Sitio público estático de presentación |
-| [`test-manager-library-3145556-infra`](https://github.com/code-sena/test-manager-library-3145556-infra) | Contenedores, red, volúmenes y motor de base de datos vacío |
-| [`test-manager-library-3145556-tool`](https://github.com/code-sena/test-manager-library-3145556-tool) | Utilidades: sembrador de datos de demostración |
+## Frontend
+
+`docker/app.Dockerfile` construye `app` (Vite → `dist/`) y lo sirve con nginx en el puerto 5173.
+Mientras el repositorio `app` esté vacío, el servicio sirve un aviso; en cuanto exista su build,
+el mismo comando sirve la interfaz completa.
+
+## Comandos útiles
+
+```bash
+docker compose logs -f api     # ver la API
+docker compose down            # parar el stack (conserva los volúmenes)
+```
