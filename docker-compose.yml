@@ -1,0 +1,68 @@
+name: manager-library
+
+services:
+  db:
+    image: postgres:16-alpine
+    command: ["postgres", "-c", "timezone=UTC", "-c", "log_timezone=UTC"]
+    environment:
+      POSTGRES_DB: library
+      POSTGRES_USER: library
+      POSTGRES_PASSWORD: library
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U library -d library"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - library
+
+  api:
+    build:
+      context: ../api
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_URL: http://localhost:8000
+      APP_KEY: ${APP_KEY:?set APP_KEY in .env}
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_DATABASE: library
+      DB_USERNAME: library
+      DB_PASSWORD: library
+      DATABASE_URL: postgresql://library:library@db:5432/library
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:?set ADMIN_USERNAME in .env}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
+      COVERS_DIR: /app/var/covers
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+      SESSION_DRIVER: file
+      CACHE_STORE: file
+      QUEUE_CONNECTION: sync
+    volumes:
+      - covers:/app/var/covers
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "php -r \"exit(strpos((string) @file_get_contents('http://127.0.0.1:8000/api/v1/health'), 'ok') !== false ? 0 : 1);\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - library
+
+volumes:
+  pgdata:
+  covers:
+
+networks:
+  library:
+    name: library
