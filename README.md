@@ -22,8 +22,8 @@ docker compose up
 ## La base arranca vacía
 
 Artículo V de la constitución: el motor se levanta vacío y todo el DDL vive en las migraciones de
-`api`. Este repositorio **no contiene `CREATE TABLE`**. El esquema `library` aparece al correr las
-migraciones:
+`api`. Este repositorio **no contiene DDL** (ni tablas, ni índices, ni restricciones). El esquema
+`library` aparece al correr las migraciones:
 
 ```bash
 docker compose exec api php artisan migrate
