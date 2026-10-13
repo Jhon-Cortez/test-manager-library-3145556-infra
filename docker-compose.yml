@@ -22,7 +22,7 @@ services:
 
   api:
     build:
-      context: ../api
+      context: ../test-manager-library-3145556-api
     ports:
       - "8000:8000"
     environment:
@@ -64,7 +64,7 @@ services:
       context: .
       dockerfile: docker/app.Dockerfile
       additional_contexts:
-        app: ../app
+        app: ../test-manager-library-3145556-app
       args:
         VITE_API_URL: ${VITE_API_URL:-http://localhost:8000/api/v1}
     ports:
